@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadToDrive } from '../utils/GoogleDriveUploader.js';
+import { uploadToGoogleDrive } from '../utils/GoogleDriveUploader.js';
 import { fileURLToPath } from 'url';
 import puppeteer from 'puppeteer';
 import handlebars from 'handlebars';
@@ -37,7 +37,7 @@ export async function generateDocument(req, res) {
     await browser.close();
 
     // 3. Subir a Google Drive
-    const driveUrl = await uploadToDrive(filepath, filename, 'application/pdf');
+    const driveUrl = await uploadToGoogleDrive(filepath);
     await fs.unlink(filepath);
 
     return res.status(200).json({ downloadUrl: driveUrl });
