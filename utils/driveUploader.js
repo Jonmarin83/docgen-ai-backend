@@ -1,47 +1,57 @@
-import fs from 'fs';
-import path from 'path';
-import { google } from 'googleapis';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
-
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN
-});
+const fs = require('fs');
+const path = require('path');
+const { google } = require('googleapis');
+const oauth2Client = require('./googleAuthClient');
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-export async function uploadToDrive(filePath, fileName, mimeType = 'application/pdf') {
+async function uploadToDrive(filePath) {
+  const fileName = path.basename(filePath);
+  const mimeType = getMimeType(fileName);
+
   const fileMetadata = {
-    name: fileName
-  };
-  const media = {
-    mimeType,
-    body: fs.createReadStream(filePath)
+    name: fileName,
   };
 
-  try {
-    const response = await drive.files.create({
-      resource: fileMetadata,
-      media,
-      fields: 'id, webViewLink, webContentLink'
-    });
-    return {
-      success: true,
-      id: response.data.id,
-      viewLink: response.data.webViewLink,
-      downloadLink: response.data.webContentLink
-    };
-  } catch (error) {
-    console.error('❌ Error uploading to Google Drive:', error.message);
-    return { success: false, error: error.message };
+  const media = {
+    mimeType,
+    body: fs.createReadStream(filePath),
+  };
+
+  const response = await drive.files.create({
+    resource: fileMetadata,
+    media,
+    fields: 'id',
+  });
+
+  const fileId = response.data.id;
+
+  // Hacer público el archivo
+  await drive.permissions.create({
+    fileId,
+    requestBody: {
+      role: 'reader',
+      type: 'anyone',
+    },
+  });
+
+  const publicUrl = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+
+  return { publicUrl, fileId };
+}
+
+function getMimeType(fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  switch (ext) {
+    case '.pdf': return 'application/pdf';
+    case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case '.xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case '.pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    default: return 'application/octet-stream';
   }
 }
+
+module.exports = { uploadToDrive };
