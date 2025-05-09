@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "puppeteer install"
+    "postinstall": "node node_modules/puppeteer/lib/esm/puppeteer/node/install.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
