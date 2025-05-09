@@ -1,9 +1,9 @@
-const fs = require('fs');
+cconst fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { uploadToDrive } = require('./driveUploader');
 const puppeteer = require('puppeteer');
-const { Document, Packer, Paragraph, HeadingLevel, TextRun } = require('docx');
+const { Document, Packer, Paragraph, HeadingLevel } = require('docx');
 const ExcelJS = require('exceljs');
 const pptxgen = require('pptxgenjs');
 
@@ -60,25 +60,24 @@ async function generatePDF(content, outputPath) {
   await browser.close();
 }
 
-
 async function generateDOCX(content, outputPath) {
-  const doc = new Document();
-  const children = [];
-
-  if (content.title) {
-    children.push(new Paragraph({ text: content.title, heading: HeadingLevel.HEADING_1 }));
-  }
-
-  (content.sections || []).forEach(section => {
-    if (section.heading) {
-      children.push(new Paragraph({ text: section.heading, heading: HeadingLevel.HEADING_2 }));
-    }
-    if (section.body) {
-      children.push(new Paragraph(section.body));
-    }
+  const doc = new Document({
+    sections: [
+      {
+        properties: {},
+        children: [
+          ...(content.title
+            ? [new Paragraph({ text: content.title, heading: HeadingLevel.HEADING_1 })]
+            : []),
+          ...(content.sections || []).flatMap(section => [
+            new Paragraph({ text: section.heading || '', heading: HeadingLevel.HEADING_2 }),
+            new Paragraph(section.body || '')
+          ])
+        ]
+      }
+    ]
   });
 
-  doc.addSection({ children });
   const buffer = await Packer.toBuffer(doc);
   fs.writeFileSync(outputPath, buffer);
 }
@@ -106,7 +105,7 @@ async function generatePPTX(content, outputPath) {
   const slide = pptx.addSlide();
   slide.addText(content.title || 'Presentación', { x: 1, y: 0.5, fontSize: 24 });
 
-  (content.sections || []).forEach((section, i) => {
+  (content.sections || []).forEach(section => {
     const s = pptx.addSlide();
     s.addText(section.heading || '', { x: 0.5, y: 0.5, fontSize: 20, bold: true });
     s.addText(section.body || '', { x: 0.5, y: 1.2, fontSize: 14 });
@@ -123,10 +122,14 @@ async function generateImage(content, outputPath, format) {
     </body></html>
   `;
 
-  const browser = await puppeteer.launch({ headless: 'new' });
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+
   const page = await browser.newPage();
   await page.setViewport({ width: 800, height: 1000 });
-  await page.setContent(html);
+  await page.setContent(html, { waitUntil: 'networkidle0' });
   await page.screenshot({ path: outputPath, type: format });
   await browser.close();
 }
