@@ -6,16 +6,14 @@ const { generateDocument } = require('./utils/generator');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// ✅ Ruta de verificación (para mostrar en navegador que el backend está activo)
 app.get('/', (req, res) => {
   res.send('✅ DocGen API corriendo correctamente.');
 });
 
-// ✅ Ruta principal para generar documentos
+
 app.post('/generate', async (req, res) => {
   try {
     const { type, content, filename } = req.body;
@@ -26,8 +24,6 @@ app.post('/generate', async (req, res) => {
         message: 'Faltan campos requeridos: type o content.'
       });
     }
-
-    console.log(`📥 Solicitud recibida para generar: ${type}`);
 
     const result = await generateDocument({ type, content, filename });
 
@@ -50,7 +46,6 @@ app.post('/generate', async (req, res) => {
   }
 });
 
-// ✅ Inicio del servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://0.0.0.0:${PORT}`);
 });
