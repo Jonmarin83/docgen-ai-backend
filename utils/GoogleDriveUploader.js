@@ -29,6 +29,8 @@ export async function uploadToGoogleDrive(filePath) {
       body: fs.createReadStream(filePath),
     };
 
+    console.log('📤 Subiendo archivo a Google Drive:', fileMetadata.name);
+
     const file = await drive.files.create({
       resource: fileMetadata,
       media: media,
@@ -36,7 +38,13 @@ export async function uploadToGoogleDrive(filePath) {
     });
 
     const fileId = file.data.id;
+    console.log('✅ Archivo subido. ID del archivo:', fileId);
 
+    if (!fileId) {
+      throw new Error('❌ No se recibió un ID válido del archivo');
+    }
+
+    console.log('🔐 Asignando permisos públicos...');
     await drive.permissions.create({
       fileId: fileId,
       requestBody: {
@@ -46,11 +54,12 @@ export async function uploadToGoogleDrive(filePath) {
     });
 
     const publicUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    console.log('🔗 Enlace público generado:', publicUrl);
+
     return publicUrl;
 
   } catch (error) {
-    console.error('Error subiendo a Google Drive:', error.message);
+    console.error('🚨 Error subiendo a Google Drive:', error.message);
     throw new Error('Falló la subida a Google Drive');
   }
 }
-
