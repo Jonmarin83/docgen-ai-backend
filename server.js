@@ -1,20 +1,28 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import renderRoutes from './routes/render.js';
-import generateRoutes from './routes/generate.js';
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
 
-dotenv.config();
+// Suponiendo que ya tienes esta función para generar y subir documentos
+const { generateDocument } = require('./services/generator');
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// Middlewares
-app.use(express.json({ limit: '5mb' }));
+app.use(cors());
+app.use(bodyParser.json());
 
-// Rutas
-app.use('/render', renderRoutes);
-app.use('/generate', generateRoutes);
+// Ruta principal para generar documentos
+app.post('/generate', async (req, res) => {
+  try {
+    const { type, content, filename } = req.body;
 
-// Inicializar servidor
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
+    if (!type || !content) {
+      return res.status(400).json({ success: false, message: 'Faltan campos requeridos: type o content.' });
+    }
+
+    console.log(`📥 Solicitud recibida para generar: ${type}`);
+
+    const result = await generateDocument({ type, content, filename });
+
+    if (!result || !result.publicUrl) {
+      throw new Error('No se pudo generar el
