@@ -1,23 +1,30 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-
-// Importa la función para generar el documento
 const { generateDocument } = require('./utils/generator');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// Ruta principal para generar documentos
+// ✅ Ruta de verificación (para mostrar en navegador que el backend está activo)
+app.get('/', (req, res) => {
+  res.send('✅ DocGen API corriendo correctamente.');
+});
+
+// ✅ Ruta principal para generar documentos
 app.post('/generate', async (req, res) => {
   try {
     const { type, content, filename } = req.body;
 
     if (!type || !content) {
-      return res.status(400).json({ success: false, message: 'Faltan campos requeridos: type o content.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan campos requeridos: type o content.'
+      });
     }
 
     console.log(`📥 Solicitud recibida para generar: ${type}`);
@@ -33,9 +40,8 @@ app.post('/generate', async (req, res) => {
       url: result.publicUrl,
       fileId: result.fileId
     });
-
   } catch (error) {
-    console.error('❌ Error al generar documento:', error.message);
+    console.error('❌ Error al generar documento:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno al generar el documento.',
@@ -44,12 +50,7 @@ app.post('/generate', async (req, res) => {
   }
 });
 
-// Ruta de prueba
-app.get('/', (req, res) => {
-  res.send('✅ DocGen API corriendo correctamente.');
-});
-
-// Iniciar servidor
+// ✅ Inicio del servidor
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo en http://0.0.0.0:${PORT}`);
 });
