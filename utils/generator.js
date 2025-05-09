@@ -3,9 +3,10 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { uploadToDrive } = require('./driveUploader');
 const puppeteer = require('puppeteer');
-const { Document, Packer, Paragraph, HeadingLevel } = require('docx');
+const { Document, Packer, Paragraph, HeadingLevel, Media } = require('docx');
 const ExcelJS = require('exceljs');
 const pptxgen = require('pptxgenjs');
+const fetch = require('node-fetch');
 
 async function generateDocument({ type, content, filename = 'documento' }) {
   const id = uuidv4();
@@ -42,12 +43,20 @@ async function generateDocument({ type, content, filename = 'documento' }) {
 }
 
 async function generatePDF(content, outputPath) {
-  const html = `
-    <html><head><meta charset="utf-8"></head><body>
+  let html = `
+    <html><head><meta charset="utf-8"><style>img{max-width:100%;margin:1em 0;}</style></head><body>
     <h1>${content.title || 'Documento PDF'}</h1>
-    ${(content.sections || []).map(s => `<h2>${s.heading}</h2><p>${s.body}</p>`).join('')}
-    </body></html>
   `;
+
+  for (const item of content.sections || []) {
+    if (item.type === 'text') {
+      html += `<h2>${item.heading || ''}</h2><p>${item.body || ''}</p>`;
+    } else if (item.type === 'image' && item.url) {
+      html += `<img src="${item.url}" alt="Imagen">`;
+    }
+  }
+
+  html += `</body></html>`;
 
   const browser = await puppeteer.launch({
     headless: 'new',
@@ -61,22 +70,26 @@ async function generatePDF(content, outputPath) {
 }
 
 async function generateDOCX(content, outputPath) {
-  const doc = new Document({
-    sections: [
-      {
-        properties: {},
-        children: [
-          ...(content.title
-            ? [new Paragraph({ text: content.title, heading: HeadingLevel.HEADING_1 })]
-            : []),
-          ...(content.sections || []).flatMap(section => [
-            new Paragraph({ text: section.heading || '', heading: HeadingLevel.HEADING_2 }),
-            new Paragraph(section.body || '')
-          ])
-        ]
+  const doc = new Document();
+  const children = [];
+
+  for (const item of content.sections || []) {
+    if (item.type === 'text') {
+      children.push(new Paragraph({ text: item.heading || '', heading: HeadingLevel.HEADING_2 }));
+      children.push(new Paragraph(item.body || ''));
+    } else if (item.type === 'image' && item.url) {
+      try {
+        const res = await fetch(item.url);
+        const buffer = await res.arrayBuffer();
+        const image = Media.addImage(doc, Buffer.from(buffer));
+        children.push(new Paragraph(image));
+      } catch (err) {
+        console.warn(`❌ No se pudo cargar la imagen: ${item.url}`);
       }
-    ]
-  });
+    }
+  }
+
+  doc.addSection({ children });
 
   const buffer = await Packer.toBuffer(doc);
   fs.writeFileSync(outputPath, buffer);
@@ -115,12 +128,20 @@ async function generatePPTX(content, outputPath) {
 }
 
 async function generateImage(content, outputPath, format) {
-  const html = `
-    <html><head><meta charset="utf-8"></head><body>
+  let html = `
+    <html><head><meta charset="utf-8"><style>img{max-width:100%;margin:1em 0;}</style></head><body>
     <h1>${content.title || 'Imagen generada'}</h1>
-    ${(content.sections || []).map(s => `<h2>${s.heading}</h2><p>${s.body}</p>`).join('')}
-    </body></html>
   `;
+
+  for (const item of content.sections || []) {
+    if (item.type === 'text') {
+      html += `<h2>${item.heading || ''}</h2><p>${item.body || ''}</p>`;
+    } else if (item.type === 'image' && item.url) {
+      html += `<img src="${item.url}" alt="Imagen">`;
+    }
+  }
+
+  html += `</body></html>`;
 
   const browser = await puppeteer.launch({
     headless: 'new',
@@ -135,4 +156,3 @@ async function generateImage(content, outputPath, format) {
 }
 
 module.exports = { generateDocument };
-
